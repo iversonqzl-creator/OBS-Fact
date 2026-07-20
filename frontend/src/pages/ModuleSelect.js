@@ -21,7 +21,7 @@ function ModuleCard({ to, icon: Icon, title, desc, testid }) {
             <Icon className="h-6 w-6" />
           </div>
           <h2 className="mt-6 font-heading text-xl font-semibold tracking-tight text-foreground">{title}</h2>
-          <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{desc}</p>
+          {desc && <p className="mt-2 text-sm leading-relaxed text-muted-foreground">{desc}</p>}
         </div>
         <span className="mt-8 inline-flex items-center gap-2 text-sm font-medium text-primary">
           Open <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-1" style={{ transitionProperty: "transform" }} />
@@ -53,7 +53,6 @@ export default function ModuleSelect() {
           to="/word-to-excel"
           icon={FileSpreadsheet}
           title="Word → Excel"
-          desc="Extract observation Facts, headings, scope and metadata from WANO Field Note .docx files into a combined spreadsheet (up to 200 files)."
           testid="module-word-to-excel"
         />
         {user?.role === "admin" && (
