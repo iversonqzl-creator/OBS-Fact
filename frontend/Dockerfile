@@ -2,10 +2,11 @@
 FROM node:18-bullseye AS build
 WORKDIR /app
 
-COPY package.json yarn.lock ./
-RUN yarn install --frozen-lockfile
-
+# Copy the whole frontend (node_modules/build excluded via .dockerignore).
+# We intentionally do NOT rely on yarn.lock so the build works even if the
+# lockfile isn't present in the repo.
 COPY . .
+RUN yarn install
 
 # Empty value => frontend calls the API at the relative path "/api",
 # which the container's Nginx proxies to the backend service.
