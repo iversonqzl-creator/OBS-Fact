@@ -40,3 +40,14 @@ Web app on a cloud server (complete project, not a demo) for a few users to uplo
 
 ## Next Tasks
 - Await user's sample Word + expected Excel to align exact column structure.
+
+## Implemented (2026-07-20, iteration 2)
+- Rebranded to **WANOSC-Toolbox**; login simplified (no subtitle, no side image).
+- **Module selector** home (`/`) after sign-in: Word→Excel, Word→PDF, Admin Portal (admin-only card).
+- **Word→Excel** moved to `/word-to-excel` (+ History link); exact-match output preserved.
+- **Word→PDF (Combine)** module (`/word-to-pdf`): up to 100 .docx → converted via LibreOffice (`soffice`) and merged with pypdf into one PDF (streamed download; `X-Converted-Count`/`X-Error-Count` headers).
+- **Admin Portal** (`/admin`, admin-only): create users (username/password/name), choose role admin or general user; list & delete users (cannot self-delete). Backend `require_admin` guard on `/api/users` (GET/POST/DELETE).
+- Verified by testing agent: backend 24/24, frontend all flows, 0 defects.
+
+## Known Ops Caveat
+- Word→PDF depends on LibreOffice (`soffice`), installed via apt in this pod. On self-hosted deploy, install `libreoffice-writer` in the image. If the preview pod is fully rebuilt, LibreOffice may need reinstalling.
