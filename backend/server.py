@@ -7,7 +7,10 @@ load_dotenv(ROOT_DIR / '.env')
 import os
 import io
 import re
+import shutil
 import zipfile
+import tempfile
+import subprocess
 import json
 import uuid
 import logging
@@ -28,6 +31,7 @@ from docx import Document
 from openpyxl import Workbook
 from openpyxl.styles import Font, PatternFill, Alignment
 from openpyxl.utils import get_column_letter
+from pypdf import PdfWriter
 
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(name)s - %(levelname)s - %(message)s')
 logger = logging.getLogger(__name__)
@@ -335,6 +339,19 @@ class UserOut(BaseModel):
     role: str
 
 
+class UserCreate(BaseModel):
+    username: str
+    password: str
+    name: str = ""
+    role: str = "user"
+
+
+def require_admin(current: User = Depends(get_current_user)) -> User:
+    if current.role != "admin":
+        raise HTTPException(status_code=403, detail="Admin access required")
+    return current
+
+
 @api_router.get("/")
 async def root():
     return {"message": "Word to Excel API"}
@@ -356,6 +373,119 @@ def login(payload: LoginRequest, db: Session = Depends(get_db)):
 @api_router.get("/auth/me", response_model=UserOut)
 def me(current: User = Depends(get_current_user)):
     return UserOut(id=current.id, username=current.username, name=current.name, role=current.role)
+
+
+# ---------------------------------------------------------------------------
+# User management (admin only)
+# ---------------------------------------------------------------------------
+@api_router.get("/users", response_model=List[UserOut])
+def list_users(admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    users = db.query(User).order_by(User.created_at.asc()).all()
+    return [UserOut(id=u.id, username=u.username, name=u.name, role=u.role) for u in users]
+
+
+@api_router.post("/users", response_model=UserOut)
+def create_user(payload: UserCreate, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    username = payload.username.strip().lower()
+    if not username or not payload.password:
+        raise HTTPException(status_code=400, detail="Username and password are required")
+    if payload.role not in ("admin", "user"):
+        raise HTTPException(status_code=400, detail="Role must be 'admin' or 'user'")
+    if db.query(User).filter(User.username == username).first():
+        raise HTTPException(status_code=400, detail="Username already exists")
+    user = User(
+        username=username,
+        password_hash=hash_password(payload.password),
+        name=payload.name.strip() or username,
+        role=payload.role,
+    )
+    db.add(user)
+    db.commit()
+    db.refresh(user)
+    return UserOut(id=user.id, username=user.username, name=user.name, role=user.role)
+
+
+@api_router.delete("/users/{user_id}")
+def delete_user(user_id: int, admin: User = Depends(require_admin), db: Session = Depends(get_db)):
+    if user_id == admin.id:
+        raise HTTPException(status_code=400, detail="You cannot delete your own account")
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    db.delete(user)
+    db.commit()
+    return {"ok": True}
+
+
+# ---------------------------------------------------------------------------
+# Word -> PDF (combine)
+# ---------------------------------------------------------------------------
+def _docx_to_pdf(docx_path: str, out_dir: str) -> str:
+    soffice = shutil.which("soffice") or shutil.which("libreoffice")
+    if not soffice:
+        raise RuntimeError("LibreOffice is not available on the server")
+    subprocess.run(
+        [soffice, "--headless", "--convert-to", "pdf", "--outdir", out_dir, docx_path],
+        check=True, capture_output=True, timeout=90,
+    )
+    pdf_name = os.path.splitext(os.path.basename(docx_path))[0] + ".pdf"
+    pdf_path = os.path.join(out_dir, pdf_name)
+    if not os.path.exists(pdf_path):
+        raise RuntimeError("PDF conversion failed")
+    return pdf_path
+
+
+@api_router.post("/word-to-pdf")
+async def word_to_pdf(
+    files: List[UploadFile] = File(...),
+    current: User = Depends(get_current_user),
+):
+    if not files:
+        raise HTTPException(status_code=400, detail="No files uploaded")
+    if len(files) > 100:
+        raise HTTPException(status_code=400, detail="Maximum 100 files allowed")
+
+    workdir = tempfile.mkdtemp(prefix="w2pdf_")
+    out_dir = os.path.join(workdir, "out")
+    os.makedirs(out_dir, exist_ok=True)
+    merger = PdfWriter()
+    errors: List[dict] = []
+    converted = 0
+    try:
+        for idx, f in enumerate(files):
+            fname = f.filename or f"file{idx}.docx"
+            if not fname.lower().endswith(".docx"):
+                errors.append({"filename": fname, "error": "Only .docx is supported"})
+                continue
+            safe = f"{idx:04d}_" + re.sub(r"[^A-Za-z0-9._-]", "_", os.path.basename(fname))
+            docx_path = os.path.join(workdir, safe)
+            with open(docx_path, "wb") as fh:
+                fh.write(await f.read())
+            try:
+                pdf_path = _docx_to_pdf(docx_path, out_dir)
+                merger.append(pdf_path)
+                converted += 1
+            except Exception as e:
+                logger.exception("PDF convert failed for %s", fname)
+                errors.append({"filename": fname, "error": str(e)})
+
+        if converted == 0:
+            raise HTTPException(status_code=400, detail="No files could be converted. " + (errors[0]["error"] if errors else ""))
+
+        out_pdf = os.path.join(workdir, "combined.pdf")
+        with open(out_pdf, "wb") as fh:
+            merger.write(fh)
+        merger.close()
+        data = open(out_pdf, "rb").read()
+    finally:
+        shutil.rmtree(workdir, ignore_errors=True)
+
+    headers = {
+        "Content-Disposition": 'attachment; filename="combined.pdf"',
+        "X-Converted-Count": str(converted),
+        "X-Error-Count": str(len(errors)),
+    }
+    return StreamingResponse(io.BytesIO(data), media_type="application/pdf", headers=headers)
 
 
 @api_router.post("/convert")
@@ -483,6 +613,7 @@ app.add_middleware(
     allow_origins=os.environ.get('CORS_ORIGINS', '*').split(','),
     allow_methods=["*"],
     allow_headers=["*"],
+    expose_headers=["X-Converted-Count", "X-Error-Count"],
 )
 
 

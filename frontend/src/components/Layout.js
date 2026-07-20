@@ -1,5 +1,5 @@
 import { Link, useLocation, useNavigate } from "react-router-dom";
-import { FileText, LogOut, LayoutGrid, History } from "lucide-react";
+import { FileText, LogOut, LayoutGrid, Shield } from "lucide-react";
 import { useAuth } from "@/context/AuthContext";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
@@ -9,8 +9,8 @@ export default function Layout({ children }) {
   const navigate = useNavigate();
 
   const nav = [
-    { to: "/", label: "Convert", icon: LayoutGrid },
-    { to: "/history", label: "History", icon: History },
+    { to: "/", label: "Modules", icon: LayoutGrid },
+    ...(user?.role === "admin" ? [{ to: "/admin", label: "Admin", icon: Shield }] : []),
   ];
 
   return (
@@ -22,7 +22,7 @@ export default function Layout({ children }) {
               <div className="grid h-9 w-9 place-items-center bg-primary text-primary-foreground">
                 <FileText className="h-4 w-4" />
               </div>
-              <span className="font-heading text-base font-semibold tracking-tight text-foreground">Word → Excel</span>
+              <span className="font-heading text-base font-semibold tracking-tight text-foreground">WANOSC-Toolbox</span>
             </Link>
             <nav className="hidden items-center gap-1 sm:flex">
               {nav.map((n) => {

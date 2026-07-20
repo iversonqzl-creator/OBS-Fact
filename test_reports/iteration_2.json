@@ -1,0 +1,22 @@
+{
+  "summary": "Full backend + frontend E2E for WANOSC-Toolbox after Module Selector / Admin Portal / Word→PDF additions. Backend: 24/24 pytest tests pass — auth (login valid/invalid, /me), admin user CRUD (list, create, self-login as new user, general-user 403 on /api/users GET/POST/DELETE, unauthenticated 401, duplicate 400, cannot self-delete 400, delete verified), Word→Excel /convert + /jobs (list/get/download xlsx with FACT_COLUMNS headers/delete), and Word→PDF (auth required, combine 2 .docx → valid multi-page PDF with X-Converted-Count=2/X-Error-Count=0, mixed skips non-docx returning X-Converted=1/X-Error=1, all-invalid returns 400). Frontend: login page shows WANOSC-Toolbox brand + no subtitle + no side image; admin/admin123 logs in and lands on module selector; all 3 module cards visible for admin (Word→Excel, Word→PDF, Admin Portal); Admin Portal creates a new general user which appears in the list; admin row shows 'You' with no delete button; general user login shows only 2 modules (no Admin card) and /admin redirects to /; Word→PDF UI: uploading mix of .docx + .txt flags .txt with 'Only .docx supported', clicking Combine downloads combined.pdf (7539 bytes), result panel shows '2 file(s) merged · 1 skipped'; Word→Excel end-to-end still works (upload, convert, download xlsx 5141 bytes); History link works; Modules/Admin header links + Logout all work; created test user was cleaned up.",
+  "backend_issues": {"critical": [], "minor": []},
+  "frontend_issues": {"ui_bugs": [], "integration_issues": [], "design_issues": []},
+  "test_report_links": ["/app/backend/tests/backend_test.py", "/app/test_reports/pytest/pytest_results.xml"],
+  "action_items": [],
+  "critical_code_review_comments": [
+    "server.py is now ~640 lines and mixes auth, DB models, Word parsing, Excel/PDF handling in one file — approaching the 700-line split threshold; consider modules: auth.py, models.py, routers/users.py, routers/convert.py, routers/word_to_pdf.py, services/docx_parser.py.",
+    "word_to_pdf uses shutil.rmtree in finally BEFORE reading data — currently OK because data=open(...).read() runs before finally; but subprocess.run for each file is sequential and can time out for large batches. Consider parallelizing or streaming the merged PDF.",
+    "seed_admin() correctly resyncs admin password when ADMIN_PASSWORD env changes.",
+    "AdminPortal delete uses window default (no confirmation prompt). Add a shadcn AlertDialog confirmation before destructive delete.",
+    "New role validation restricts to admin/user — good. Frontend select matches. Consider a lowercase-invariant login on the client too."
+  ],
+  "updated_files": ["/app/backend/tests/backend_test.py"],
+  "success_rate": {"backend": "100%", "frontend": "100%"},
+  "test_credentials": "admin / admin123 (seeded). Ephemeral TEST_user_XXXXXX created and deleted during tests.",
+  "seed_data_creation": "In-memory .docx via python-docx for /api/convert and /api/word-to-pdf tests; one bad.txt to verify skip/reject; ephemeral TEST_user_XXXXXX created via /api/users and deleted at end. UI test also created & deleted a testXXXXX general user.",
+  "retest_needed": false,
+  "main_agent_can_self_test": true,
+  "context_for_next_testing_agent": "Tests parallelize via pytest-xdist (LoadScope). LibreOffice soffice available at /usr/bin/soffice — Word→PDF conversions take ~2-3s per file. Word→Excel schema is FACT_COLUMNS: Fact#, Facts, Title, Scope, File Name, Keyword, Area, Team Area, Reviewer (replaces old Body Text/author schema — do not use the pre-iteration-1 assumptions). JWT token key in localStorage is 'w2e_token', header Authorization: Bearer. Admin nav link is only rendered when user.role==='admin'. Frontend uses hidden <input type=file> — never wait_for_selector on visibility; use set_input_files directly.",
+  "rca of the issue": "N/A — no defects found."
+}

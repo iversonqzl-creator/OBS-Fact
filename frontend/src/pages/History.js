@@ -1,6 +1,7 @@
 import { useEffect, useState, useCallback } from "react";
+import { Link } from "react-router-dom";
 import { toast } from "sonner";
-import { Download, Trash2, FileText, Clock, AlertTriangle, Inbox } from "lucide-react";
+import { Download, Trash2, FileText, Clock, AlertTriangle, Inbox, ArrowLeft } from "lucide-react";
 import { api } from "@/lib/api";
 import Layout from "@/components/Layout";
 
@@ -51,6 +52,9 @@ export default function History() {
 
   return (
     <Layout>
+      <Link to="/word-to-excel" className="mb-6 inline-flex items-center gap-2 text-sm text-muted-foreground transition-colors hover:text-foreground" data-testid="history-back">
+        <ArrowLeft className="h-4 w-4" /> Word → Excel
+      </Link>
       <div className="mb-10">
         <p className="text-[0.7rem] uppercase tracking-[0.25em] text-muted-foreground">Past conversions</p>
         <h1 className="mt-2 font-heading text-4xl font-semibold leading-none tracking-tight text-foreground sm:text-5xl">History</h1>
