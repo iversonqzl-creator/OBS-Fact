@@ -31,7 +31,7 @@ Everything (PostgreSQL + FastAPI backend + React/Nginx web) runs in containers.
 git clone <your-github-repo-url> wanosc && cd wanosc
 
 # 2. Create your env file and edit the passwords/secret
-cp .env.docker.example .env
+cp env.docker.example .env
 nano .env          # set DB_PASS, JWT_SECRET, ADMIN_PASSWORD
 
 # 3. Build & start everything
