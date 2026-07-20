@@ -1,0 +1,24 @@
+[Unit]
+Description=WANOSC-Toolbox FastAPI backend
+After=network.target postgresql.service
+Wants=postgresql.service
+
+[Service]
+Type=simple
+User=www-data
+Group=www-data
+# Adjust this to where you cloned the repo
+WorkingDirectory=/opt/wanosc/backend
+# Loads DATABASE_URL, JWT_SECRET, ADMIN_* etc.
+EnvironmentFile=/opt/wanosc/backend/.env
+# Use the venv's gunicorn with uvicorn workers, bound to localhost:8001
+ExecStart=/opt/wanosc/backend/venv/bin/gunicorn server:app \
+    --workers 2 \
+    --worker-class uvicorn.workers.UvicornWorker \
+    --bind 127.0.0.1:8001 \
+    --timeout 120
+Restart=always
+RestartSec=3
+
+[Install]
+WantedBy=multi-user.target
