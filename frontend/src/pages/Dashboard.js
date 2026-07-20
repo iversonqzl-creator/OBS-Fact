@@ -108,11 +108,6 @@ export default function Dashboard() {
         <h1 className="mt-2 font-heading text-4xl font-semibold leading-none tracking-tight text-foreground sm:text-5xl">
           Word to Excel
         </h1>
-        <p className="mt-4 max-w-2xl leading-relaxed text-muted-foreground">
-          Drop up to {MAX_FILES} WANO Field Note <span className="font-mono text-foreground">.docx</span> files. We extract each
-          observation Fact (main and sub-facts), split out Keyword and Area, and pull Title, Scope and the document's Area / Reviewer
-          metadata into a single combined spreadsheet.
-        </p>
       </div>
 
       <div className="grid grid-cols-1 gap-6 lg:grid-cols-5">

@@ -1,6 +1,6 @@
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
-import { FileSpreadsheet, FileText, Shield, ArrowRight } from "lucide-react";
+import { FileSpreadsheet, Shield, ArrowRight } from "lucide-react";
 import Layout from "@/components/Layout";
 import { useAuth } from "@/context/AuthContext";
 
@@ -55,13 +55,6 @@ export default function ModuleSelect() {
           title="Word → Excel"
           desc="Extract observation Facts, headings, scope and metadata from WANO Field Note .docx files into a combined spreadsheet (up to 200 files)."
           testid="module-word-to-excel"
-        />
-        <ModuleCard
-          to="/word-to-pdf"
-          icon={FileText}
-          title="Word → PDF (Combine)"
-          desc="Convert multiple .docx files to PDF and merge them into a single combined document (up to 100 files)."
-          testid="module-word-to-pdf"
         />
         {user?.role === "admin" && (
           <ModuleCard
