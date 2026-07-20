@@ -17,7 +17,7 @@ export default function PreviewTable({ columns, rows }) {
         </thead>
         <tbody>
           {rows.map((r, i) => (
-            <tr key={i} className="border-t border-border odd:bg-surface hover:bg-muted/60" data-testid={`preview-row-${i}`}>
+            <tr key={`${r["File Name"]}-${r["Fact#"]}-${i}`} className="border-t border-border odd:bg-surface hover:bg-muted/60" data-testid={`preview-row-${i}`}>
               {keys.map((k) => (
                 <td key={k} className={`border-r border-border px-3 py-2 align-top text-foreground last:border-r-0 ${k === "Facts" ? "min-w-[360px] max-w-[460px]" : "max-w-[240px] truncate"}`} title={r[k] || ""}>
                   {k === "Fact#" ? (

@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { toast } from "sonner";
 import { Download, Trash2, FileText, Clock, AlertTriangle, Inbox } from "lucide-react";
 import { api } from "@/lib/api";
@@ -18,16 +18,16 @@ function downloadBlob(data, filename) {
 export default function History() {
   const [jobs, setJobs] = useState(null);
 
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       const { data } = await api.get("/jobs");
       setJobs(data);
     } catch {
       setJobs([]);
     }
-  };
+  }, []);
 
-  useEffect(() => { load(); }, []);
+  useEffect(() => { load(); }, [load]);
 
   const download = async (id) => {
     try {

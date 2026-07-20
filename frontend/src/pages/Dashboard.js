@@ -10,6 +10,8 @@ import PreviewTable from "@/components/PreviewTable";
 
 const MAX_FILES = 200;
 
+const REVEAL = { initial: { opacity: 0, y: 12 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.4 } };
+
 function downloadBlob(data, filename) {
   const url = window.URL.createObjectURL(new Blob([data]));
   const a = document.createElement("a");
@@ -176,7 +178,7 @@ export default function Dashboard() {
                 files.map((f, i) => {
                   const ok = f.name.toLowerCase().endsWith(".docx");
                   return (
-                    <div key={i} className="flex items-center gap-3 border-b border-border px-5 py-3 last:border-b-0" data-testid={`queued-file-${i}`}>
+                    <div key={`${f.name}-${f.size}`} className="flex items-center gap-3 border-b border-border px-5 py-3 last:border-b-0" data-testid={`queued-file-${i}`}>
                       <FileText className={`h-4 w-4 shrink-0 ${ok ? "text-primary" : "text-destructive"}`} />
                       <div className="min-w-0 flex-1">
                         <p className="truncate text-sm text-foreground" title={f.name}>{f.name}</p>
@@ -197,9 +199,7 @@ export default function Dashboard() {
       {/* Result */}
       {result && (
         <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4 }}
+          {...REVEAL}
           className="mt-12"
           data-testid="result-section"
         >
@@ -230,8 +230,8 @@ export default function Dashboard() {
                 <AlertTriangle className="h-4 w-4" /> {result.errors.length} file(s) skipped
               </p>
               <ul className="space-y-1 text-sm text-destructive/90">
-                {result.errors.map((e, i) => (
-                  <li key={i}><span className="font-mono">{e.filename}</span> — {e.error}</li>
+                {result.errors.map((e) => (
+                  <li key={e.filename}><span className="font-mono">{e.filename}</span> — {e.error}</li>
                 ))}
               </ul>
             </div>

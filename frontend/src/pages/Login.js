@@ -6,6 +6,8 @@ import { useAuth } from "@/context/AuthContext";
 import { formatApiErrorDetail } from "@/lib/api";
 import { ThemeToggle } from "@/components/ThemeToggle";
 
+const FORM_REVEAL = { initial: { opacity: 0, y: 16 }, animate: { opacity: 1, y: 0 }, transition: { duration: 0.5, ease: "easeOut" } };
+
 export default function Login() {
   const { login } = useAuth();
   const navigate = useNavigate();
@@ -34,9 +36,7 @@ export default function Login() {
       <div className="relative flex flex-col justify-center px-8 py-12 sm:px-16 lg:px-20">
         <div className="absolute right-6 top-6"><ThemeToggle /></div>
         <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, ease: "easeOut" }}
+          {...FORM_REVEAL}
           className="mx-auto w-full max-w-sm"
         >
           <div className="mb-10 flex items-center gap-3">
