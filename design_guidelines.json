@@ -1,0 +1,108 @@
+{
+  "theme": "Swiss & High-Contrast (Archetype 4 with Technical Border Layout)",
+  "color_palette": {
+    "light": {
+      "background": "#FFFFFF",
+      "surface": "#F7F7F8",
+      "foreground": "#09090B",
+      "primary": "#002FA7",
+      "primary_foreground": "#FFFFFF",
+      "muted": "#E4E4E7",
+      "muted_foreground": "#71717A",
+      "border": "#E4E4E7",
+      "destructive": "#EF4444"
+    },
+    "dark": {
+      "background": "#050505",
+      "surface": "#121212",
+      "foreground": "#FAFAFA",
+      "primary": "#3366FF",
+      "primary_foreground": "#FFFFFF",
+      "muted": "#27272A",
+      "muted_foreground": "#A1A1AA",
+      "border": "#27272A",
+      "destructive": "#7F1D1D"
+    }
+  },
+  "typography": {
+    "fonts": {
+      "heading": "Work Sans, sans-serif",
+      "body": "IBM Plex Sans, sans-serif"
+    },
+    "rules": [
+      "No generic fonts like Inter, Roboto for headings.",
+      "Headlines > 32px must use tight letter spacing (tracking-tight).",
+      "Overlines / Labels must be Uppercase, Tiny, and Wide Spacing (tracking-[0.2em]).",
+      "Line height: Tight (leading-none) for headers, Loose (leading-relaxed) for body.",
+      "Max hero heading size: text-6xl (do not exceed)."
+    ]
+  },
+  "layouts": {
+    "dashboard_style": "Grid Borders (The 'Technical' Look)",
+    "rules": [
+      "Mobile-first responsive always.",
+      "Grid Layouts: Grid items MUST be direct children of grid containers.",
+      "Dashboard Cards: Flat solid backgrounds, 1px subtle border, no shadow by default. Hover adds slight lift (-translate-y-1).",
+      "Spacing: Use generous spacing. Prefer p-8, p-12 over cramped p-4.",
+      "Containers with borders must have internal padding.",
+      "Never center align the app container. No '.App { text-align: center; }'."
+    ]
+  },
+  "components": {
+    "drag_and_drop_upload": {
+      "style": "Hybrid approach. Massive dashed drop zone with a clear click-to-browse fallback button. Must never be drag-only.",
+      "states": "Drag-over state needs immediate highlight and 'Drop here' text.",
+      "file_list": "Display real-time linear progress bars per file (not indeterminate spinners)."
+    },
+    "general": [
+      "Use Shadcn UI for forms, inputs, tables, dropdowns.",
+      "Use Sonner for toasts.",
+      "Do NOT use complete transparent backgrounds for dropdowns or modals. Use solid colors with borders.",
+      "Buttons: Pill-shaped or sharp rectangular. Must have explicit hover color (e.g., hover:bg-primary/90 hover:text-white).",
+      "Interactive elements must have micro-animations (excluding transforms from generic 'transition-all')."
+    ]
+  },
+  "motion": {
+    "rules": [
+      "DO NOT apply universal transition (e.g., transition: all). This breaks transforms.",
+      "Use specific transitions like 'transition: transform 0.2s ease, opacity 0.2s ease'.",
+      "Respect prefers-reduced-motion for accessibility."
+    ]
+  },
+  "accessibility": {
+    "rules": [
+      "All interactive elements MUST have explicit hover and focus states.",
+      "Focus states must have HIGHER contrast than default state.",
+      "Ensure 4.5:1 text contrast minimum."
+    ]
+  },
+  "testing": {
+    "rules": [
+      "All interactive and key informational elements MUST include a data-testid attribute.",
+      "Use kebab-case, role-based naming (e.g., data-testid='login-submit-button')."
+    ]
+  },
+  "icons_and_media": {
+    "icons_library": "lucide-react",
+    "image_urls": {
+      "login_side_banner": {
+        "url": "https://images.pexels.com/photos/7827838/pexels-photo-7827838.jpeg?auto=compress&cs=tinysrgb&dpr=2&h=650&w=940",
+        "description": "Minimal geometric shapes on a split background, to be used on the side panel of the login screen."
+      }
+    },
+    "rules": [
+      "NEVER use placeholder URLs.",
+      "Never use AI emoji characters for icons."
+    ]
+  },
+  "instructions_to_main_agent": [
+    "Install required fonts from Google Fonts: Work Sans and IBM Plex Sans.",
+    "Implement light and dark mode toggling using Tailwind classes.",
+    "Do NOT use TSX files, this is a JS project.",
+    "Create a robust Drag-and-Drop file uploader that can handle up to 200 Word documents.",
+    "Show a data table for previewing extracted content (Titles, H1, H2, Body).",
+    "Use solid backgrounds, crisp borders, and maintain the 'Technical Look' across the application.",
+    "Apply data-testid to every interactive component you create.",
+    "Avoid the 'AI slop' aesthetic by ensuring layered design, intentional spacing, and appropriate typography hierarchy."
+  ]
+}
