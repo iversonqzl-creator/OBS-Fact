@@ -6,6 +6,8 @@ load_dotenv(ROOT_DIR / '.env')
 
 import os
 import io
+import re
+import zipfile
 import json
 import uuid
 import logging
@@ -139,135 +141,174 @@ def _style_name(paragraph) -> str:
         return ""
 
 
-def extract_doc_properties(document: Document) -> dict:
-    cp = document.core_properties
-    def fmt(dt):
-        return dt.isoformat() if isinstance(dt, datetime) else (str(dt) if dt else "")
-    return {
-        "doc_title": cp.title or "",
-        "author": cp.author or "",
-        "subject": cp.subject or "",
-        "keywords": cp.keywords or "",
-        "last_modified_by": cp.last_modified_by or "",
-        "created": fmt(cp.created),
-        "modified": fmt(cp.modified),
-    }
+def _num_level(paragraph):
+    """Return the list numbering indent level (0 = main, 1 = sub) or None."""
+    pPr = paragraph._p.pPr
+    if pPr is None or pPr.numPr is None:
+        return None
+    ilvl = pPr.numPr.ilvl
+    return int(ilvl.val) if ilvl is not None else 0
+
+
+def extract_custom_props(file_bytes: bytes) -> dict:
+    """Read SharePoint documentManagement metadata embedded in the .docx
+    (customXml/itemN.xml). The item index varies between files, so scan all."""
+    props = {"Area": "", "UserCode": "", "FileNo": "", "Title": ""}
+    try:
+        with zipfile.ZipFile(io.BytesIO(file_bytes)) as z:
+            for name in z.namelist():
+                if name.startswith("customXml/item") and name.endswith(".xml"):
+                    content = z.read(name).decode("utf-8", errors="ignore")
+                    for tag in ("FileNo", "Area", "UserCode"):
+                        if not props[tag]:
+                            m = re.search(r"<%s\b[^>]*>([^<]*)</%s>" % (tag, tag), content)
+                            if m:
+                                props[tag] = m.group(1).strip()
+                    if not props["Title"]:
+                        m = re.search(r"<Word_x002d_Title\b[^>]*>([^<]*)</Word_x002d_Title>", content)
+                        if m:
+                            props["Title"] = m.group(1).strip()
+    except Exception:
+        pass
+    return props
+
+
+def _split_at(text: str):
+    """Split a fact on '@'. Returns (body, keyword, area).
+    keyword/area are None when the corresponding '@' segment is absent."""
+    parts = text.split("@")
+    body = parts[0]
+    keyword = parts[1].strip() if len(parts) >= 2 else None
+    area = "@".join(parts[2:]).strip() if len(parts) >= 3 else None
+    return body, keyword, area
+
+
+FACT_COLUMNS = [
+    "Fact#", "Facts", "Title", "Scope", "File Name",
+    "Keyword", "Area", "Team Area", "Reviewer",
+]
 
 
 def parse_docx(file_bytes: bytes, filename: str) -> List[dict]:
-    """Return a list of row dicts. Each body paragraph / heading becomes a row,
-    with Title / Heading 1 / Heading 2 context forward-filled, plus doc properties."""
+    """Extract observation Facts from a WANO Field Note .docx into structured rows.
+
+    - Title  : SharePoint 'Word-Title' custom prop (fallback: first Heading 1).
+    - Scope  : first non-empty paragraph after the 'SCOPE' heading.
+    - Facts  : List Paragraph items under 'OBSERVATIONS'. Level 0 => main fact
+               (1, 2, 3...), level 1 => sub-fact (1.a, 1.b...). Numbering resets
+               per file. The text after the first '@' (Keyword) and second '@'
+               (Area) is stripped from the body and a
+               '#{Reviewer}-{FileNo}_{Fact#}' tag is appended.
+    - Team Area = custom 'Area'; Reviewer = Area + UserCode.
+    """
     document = Document(io.BytesIO(file_bytes))
-    props = extract_doc_properties(document)
+    cp = extract_custom_props(file_bytes)
+    area = cp["Area"]
+    user_code = cp["UserCode"]
+    file_no = cp["FileNo"]
+    reviewer = f"{area}{user_code}"
 
-    context = {"Title": "", "Heading 1": "", "Heading 2": ""}
+    paras = document.paragraphs
+
+    title = cp["Title"]
+    if not title:
+        for p in paras:
+            if _style_name(p) == "Heading 1" and p.text.strip():
+                title = p.text.strip()
+                break
+
+    scope = ""
+    for i, p in enumerate(paras):
+        if _style_name(p).startswith("Heading") and p.text.strip().upper() == "SCOPE":
+            for q in paras[i + 1:]:
+                if q.text.strip():
+                    scope = q.text.strip()
+                    break
+            break
+
     rows: List[dict] = []
+    main = 0
+    sub_ord = 0
+    cur_kw = ""
+    cur_area = ""
+    in_obs = False
 
-    def base_row():
-        row = {"File Name": filename}
-        row.update(props)
-        return row
-
-    for para in document.paragraphs:
-        text = (para.text or "").strip()
-        if not text:
+    for p in paras:
+        style = _style_name(p)
+        text = (p.text or "").strip()
+        if style.startswith("Heading") and text.upper().startswith("OBSERVATION"):
+            in_obs = True
             continue
-        style = _style_name(para)
+        if not in_obs or style != "List Paragraph" or not text:
+            continue
 
-        if style in context:
-            # It's a heading paragraph -> update context, reset lower levels
-            context[style] = text
-            if style == "Title":
-                context["Heading 1"] = ""
-                context["Heading 2"] = ""
-            elif style == "Heading 1":
-                context["Heading 2"] = ""
-            row = base_row()
-            row["Title"] = context["Title"]
-            row["Heading 1"] = context["Heading 1"]
-            row["Heading 2"] = context["Heading 2"]
-            row["Style"] = style
-            row["Body Text"] = ""
-            rows.append(row)
+        lvl = _num_level(p)
+        if lvl is None:
+            lvl = 0
+        body, kw, ar = _split_at(text)
+
+        if lvl == 0:
+            main += 1
+            sub_ord = 0
+            fact_no = str(main)
+            cur_kw = kw or ""
+            cur_area = ar or ""
+            row_kw, row_area = cur_kw, cur_area
         else:
-            # Body / other paragraph
-            row = base_row()
-            row["Title"] = context["Title"]
-            row["Heading 1"] = context["Heading 1"]
-            row["Heading 2"] = context["Heading 2"]
-            row["Style"] = style or "Normal"
-            row["Body Text"] = text
-            rows.append(row)
+            fact_no = f"{main}.{chr(ord('a') + sub_ord)}"
+            sub_ord += 1
+            row_kw = kw if kw is not None else cur_kw
+            row_area = ar if ar is not None else cur_area
 
-    # Also capture text inside tables as body rows
-    for table in document.tables:
-        for trow in table.rows:
-            cells = [c.text.strip() for c in trow.cells]
-            joined = " | ".join([c for c in cells if c])
-            if not joined:
-                continue
-            row = base_row()
-            row["Title"] = context["Title"]
-            row["Heading 1"] = context["Heading 1"]
-            row["Heading 2"] = context["Heading 2"]
-            row["Style"] = "Table"
-            row["Body Text"] = joined
-            rows.append(row)
+        body_clean = body.rstrip()
+        suffix = f"#{reviewer}-{file_no}_{fact_no}"
+        facts_text = f"{body_clean} {suffix}" if body_clean else suffix
+
+        rows.append({
+            "Fact#": fact_no,
+            "Facts": facts_text,
+            "Title": title,
+            "Scope": scope,
+            "File Name": filename,
+            "Keyword": row_kw,
+            "Area": row_area,
+            "Team Area": area,
+            "Reviewer": reviewer,
+        })
 
     return rows
 
 
-EXCEL_COLUMNS = [
-    "File Name", "doc_title", "author", "subject", "keywords",
-    "last_modified_by", "created", "modified",
-    "Title", "Heading 1", "Heading 2", "Style", "Body Text",
-]
-EXCEL_HEADERS = {
-    "doc_title": "Document Title", "author": "Author", "subject": "Subject",
-    "keywords": "Keywords", "last_modified_by": "Last Modified By",
-    "created": "Created", "modified": "Modified",
-}
+EXCEL_COLUMNS = FACT_COLUMNS
+EXCEL_HEADERS = {k: k for k in FACT_COLUMNS}
 
 
 def build_excel(rows: List[dict], filenames: List[str]) -> bytes:
     wb = Workbook()
     ws = wb.active
-    ws.title = "Extracted Content"
+    ws.title = "Facts"
 
     header_font = Font(bold=True, color="FFFFFF", name="Calibri")
     header_fill = PatternFill("solid", fgColor="002FA7")
-    for idx, key in enumerate(EXCEL_COLUMNS, start=1):
-        cell = ws.cell(row=1, column=idx, value=EXCEL_HEADERS.get(key, key))
+    for idx, key in enumerate(FACT_COLUMNS, start=1):
+        cell = ws.cell(row=1, column=idx, value=key)
         cell.font = header_font
         cell.fill = header_fill
         cell.alignment = Alignment(vertical="center", horizontal="left")
     ws.freeze_panes = "A2"
 
     for r, row in enumerate(rows, start=2):
-        for c, key in enumerate(EXCEL_COLUMNS, start=1):
-            ws.cell(row=r, column=c, value=row.get(key, ""))
+        for c, key in enumerate(FACT_COLUMNS, start=1):
+            cell = ws.cell(row=r, column=c, value=row.get(key, ""))
+            if key in ("Facts", "Scope", "Title"):
+                cell.alignment = Alignment(wrap_text=True, vertical="top")
 
     widths = {
-        "File Name": 26, "doc_title": 22, "author": 16, "subject": 18,
-        "Title": 26, "Heading 1": 26, "Heading 2": 26, "Style": 14, "Body Text": 60,
+        "Fact#": 8, "Facts": 80, "Title": 38, "Scope": 38, "File Name": 22,
+        "Keyword": 20, "Area": 16, "Team Area": 12, "Reviewer": 12,
     }
-    for idx, key in enumerate(EXCEL_COLUMNS, start=1):
+    for idx, key in enumerate(FACT_COLUMNS, start=1):
         ws.column_dimensions[get_column_letter(idx)].width = widths.get(key, 16)
-
-    # Summary sheet
-    ws2 = wb.create_sheet("Summary")
-    ws2.cell(row=1, column=1, value="File Name").font = header_font
-    ws2.cell(row=1, column=1).fill = header_fill
-    ws2.cell(row=1, column=2, value="Rows Extracted").font = header_font
-    ws2.cell(row=1, column=2).fill = header_fill
-    counts = {}
-    for row in rows:
-        counts[row.get("File Name", "")] = counts.get(row.get("File Name", ""), 0) + 1
-    for i, fn in enumerate(filenames, start=2):
-        ws2.cell(row=i, column=1, value=fn)
-        ws2.cell(row=i, column=2, value=counts.get(fn, 0))
-    ws2.column_dimensions["A"].width = 40
-    ws2.column_dimensions["B"].width = 18
 
     buf = io.BytesIO()
     wb.save(buf)

@@ -98,8 +98,9 @@ export default function Dashboard() {
           Word to Excel
         </h1>
         <p className="mt-4 max-w-2xl leading-relaxed text-muted-foreground">
-          Drop up to {MAX_FILES} <span className="font-mono text-foreground">.docx</span> files. We split each document's Title, Heading 1,
-          Heading 2, body text and document properties into structured columns, combined into a single spreadsheet with a file-name column.
+          Drop up to {MAX_FILES} WANO Field Note <span className="font-mono text-foreground">.docx</span> files. We extract each
+          observation Fact (main and sub-facts), split out Keyword and Area, and pull Title, Scope and the document's Area / Reviewer
+          metadata into a single combined spreadsheet.
         </p>
       </div>
 

@@ -19,11 +19,17 @@ Web app on a cloud server (complete project, not a demo) for a few users to uplo
 
 ## Implemented (2026-07-20)
 - Username/password login, admin seeding (admin/admin123), protected routes, logout.
-- Drag-and-drop + browse multi-file uploader (max 200 .docx), per-file queue with unsupported-format flagging.
-- POST /api/convert: parses each docx, forward-fills Title/Heading 1/Heading 2 context per paragraph, captures table text + core properties; returns preview + errors.
-- Combined Excel download (Extracted Content + Summary sheets) with File Name column.
-- Job history: list, re-download, delete.
-- Verified end-to-end by testing agent (backend 11/11, frontend 7/7).
+- Drag-and-drop + browse multi-file uploader (max 200 .docx).
+- **WANO Field Note extraction (spec-matched to user's real files):**
+  - Title from SharePoint `Word-Title` customXml prop (fallback: first Heading 1).
+  - Scope = paragraph after the SCOPE heading.
+  - Facts under OBSERVATIONS: level-0 = main (1,2,3…), level-1 = sub (1.a,1.b…), renumbered per file.
+  - `@keyword@area` stripped from body; body gets `#{Reviewer}-{FileNo}_{Fact#}` suffix.
+  - Sub-facts inherit parent Keyword/Area.
+  - Team Area = custom `Area`; Reviewer = `Area`+`UserCode`; FileNo from customXml.
+  - Excel columns: Fact# | Facts | Title | Scope | File Name | Keyword | Area | Team Area | Reviewer (sheet "Facts").
+- Combined Excel download; job history (list, re-download, delete).
+- **Verified: generated Excel is an exact value-match to the user's expected Package.xlsx (0 mismatches, live API e2e).**
 
 ## Backlog
 - P1: Column mapping fine-tuning once user shares real sample Word + expected Excel.
