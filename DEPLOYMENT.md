@@ -21,7 +21,47 @@ The app must run **24/7**: the FastAPI backend and the SQL database stay running
 
 ---
 
-## Option A — Automated (fastest)
+## Option 0 — Docker (one command) ✅ easiest
+
+Requires only **Docker** + **Docker Compose** on the server (`sudo apt install docker.io docker-compose-plugin -y`).
+Everything (PostgreSQL + FastAPI backend + React/Nginx web) runs in containers.
+
+```bash
+# 1. Get the code
+git clone <your-github-repo-url> wanosc && cd wanosc
+
+# 2. Create your env file and edit the passwords/secret
+cp .env.docker.example .env
+nano .env          # set DB_PASS, JWT_SECRET, ADMIN_PASSWORD
+
+# 3. Build & start everything
+docker compose up -d --build
+```
+
+Open `http://<server-ip>` and log in with the admin credentials from `.env`.
+
+What the stack does:
+- `db` — PostgreSQL with a persistent named volume (`pgdata`); data survives restarts.
+- `backend` — FastAPI (gunicorn+uvicorn) on internal port 8001; tables auto-create, admin auto-seeds.
+- `web` — Nginx serving the built React app **and** proxying `/api` → `backend`. The frontend is built with an empty `REACT_APP_BACKEND_URL`, so it calls `/api` on the same origin (no CORS headaches).
+
+Common commands:
+```bash
+docker compose logs -f backend     # view backend logs
+docker compose ps                  # status
+docker compose down                # stop (keeps the db volume)
+docker compose down -v             # stop AND delete the database volume
+docker compose up -d --build       # apply code changes after a git pull
+```
+
+HTTPS options: put this behind a reverse proxy (Caddy/Traefik/Nginx) or a cloud load balancer that terminates TLS and forwards to the `web` container's port. To change the host port, set `WEB_PORT` in `.env` (e.g. `WEB_PORT=8080`).
+
+> Note: the backend image installs from `backend/requirements-deploy.txt` (a curated, prod-only
+> list) — not the full `requirements.txt`, which contains Emergent-internal/dev packages.
+
+---
+
+## Option A — Automated script (no Docker)
 
 1. Push this project to GitHub (use **Save to GitHub** in Emergent).
 2. On the server, clone it, then edit the CONFIG block at the top of `deploy/deploy.sh`
