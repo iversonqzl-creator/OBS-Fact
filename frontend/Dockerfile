@@ -1,5 +1,5 @@
 # ---- Build stage ----
-FROM node:18-bullseye AS build
+FROM node:20-bullseye AS build
 WORKDIR /app
 
 # Copy the whole frontend (node_modules/build excluded via .dockerignore).
